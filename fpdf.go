@@ -592,14 +592,26 @@ func (f *Fpdf) PageNo() int {
 	return f.page
 }
 
+// Put the current context on a stack, so that it can restored later.
+// The context is the state for transformations (translations, rotations,
+// scales, etc.).
 func (f *Fpdf) SaveContext() {
 	f.outf("q\n")
 }
 
+// Pop the latest context from the stack and restore it.
 func (f *Fpdf) RestoreContext() {
 	f.outf("Q\n")
 }
 
+// Apply a rotation to all the future text and images drawn in this context.
+//
+// The angle is in degrees and the rotation is in the direct way.
+//
+// The originX and originY are the coordinates of the origin of the rotation
+// (aka the point that will remain the same after the rotation).
+//
+// Please note that (0, 0) is at the bottom-left of the page.
 func (f *Fpdf) Rotate(degree float64, originX, originY float64) {
 	rad := degree * math.Pi / 180
 	c := math.Cos(rad)
@@ -609,14 +621,30 @@ func (f *Fpdf) Rotate(degree float64, originX, originY float64) {
 	f.TransformationMatrix(c, s, -s, c, originX-x, originY-y)
 }
 
+// Apply a translation to the future text and images drawn in this context.
+//
+// If x is positive, the drawing will be moved to the right.
+// If y is positive, the drawing will be moved to the top.
 func (f *Fpdf) Translate(x, y float64) {
 	f.TransformationMatrix(1, 0, 0, 1, x, y)
 }
 
+// Scale future text and images in this context.
+//
+// factor is the multiplication factor of the size.
+// If factor > 1, the drawing will be larger.
 func (f *Fpdf) Scale(factor float64) {
 	f.TransformationMatrix(factor, 0, 0, factor, 0, 0)
 }
 
+// Apply a transformation by a matrix.
+//
+// In general, it's more convenient to use Translate, Rotate and Scale
+// but TransformationMatrix can be used for more complex usage.
+//
+//                     (x)
+// (x' y') = (a c e) . (y)
+//           (b d f)   (1)
 func (f *Fpdf) TransformationMatrix(a, b, c, d, e, ff float64) {
 	f.outf("%.5f %.5f %.5f %.5f %.5f %.5f cm\n", a, b, c, d, e*f.k, ff*f.k)
 }
