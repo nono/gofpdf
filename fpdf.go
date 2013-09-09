@@ -592,6 +592,35 @@ func (f *Fpdf) PageNo() int {
 	return f.page
 }
 
+func (f *Fpdf) SaveContext() {
+	f.outf("q\n")
+}
+
+func (f *Fpdf) RestoreContext() {
+	f.outf("Q\n")
+}
+
+func (f *Fpdf) Rotate(degree float64, originX, originY float64) {
+	rad := degree * math.Pi / 180
+	c := math.Cos(rad)
+	s := math.Sin(rad)
+	x := originX*c - originY*s
+	y := originX*s + originY*c
+	f.TransformationMatrix(c, s, -s, c, originX-x, originY-y)
+}
+
+func (f *Fpdf) Translate(x, y float64) {
+	f.TransformationMatrix(1, 0, 0, 1, x, y)
+}
+
+func (f *Fpdf) Scale(factor float64) {
+	f.TransformationMatrix(factor, 0, 0, factor, 0, 0)
+}
+
+func (f *Fpdf) TransformationMatrix(a, b, c, d, e, ff float64) {
+	f.outf("%.5f %.5f %.5f %.5f %.5f %.5f cm\n", a, b, c, d, e*f.k, ff*f.k)
+}
+
 type clrType struct {
 	r, g, b float64
 }
