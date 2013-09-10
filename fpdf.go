@@ -611,8 +611,9 @@ func (f *Fpdf) RestoreContext() {
 // The originX and originY are the coordinates of the origin of the rotation
 // (aka the point that will remain the same after the rotation).
 //
-// Please note that (0, 0) is at the bottom-left of the page.
+// Please note that (0, 0) is at the top-left of the page.
 func (f *Fpdf) Rotate(degree float64, originX, originY float64) {
+	originY = f.h - originY
 	rad := degree * math.Pi / 180
 	c := math.Cos(rad)
 	s := math.Sin(rad)
@@ -624,9 +625,9 @@ func (f *Fpdf) Rotate(degree float64, originX, originY float64) {
 // Apply a translation to the future text and images drawn in this context.
 //
 // If x is positive, the drawing will be moved to the right.
-// If y is positive, the drawing will be moved to the top.
+// If y is positive, the drawing will be moved to the bottom.
 func (f *Fpdf) Translate(x, y float64) {
-	f.TransformationMatrix(1, 0, 0, 1, x, y)
+	f.TransformationMatrix(1, 0, 0, 1, x, -y)
 }
 
 // Scale future text and images in this context.
