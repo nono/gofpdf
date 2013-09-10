@@ -770,7 +770,7 @@ func (f *Fpdf) SetLineCapStyle(styleStr string) {
 // Draws a line between points (x1, y1) and (x2, y2) using the current draw
 // color, line width and cap style.
 func (f *Fpdf) Line(x1, y1, x2, y2 float64) {
-	f.outf("%.2f %.2f m %.2f %.2f l S", x1*f.k, (f.h-y1)*f.k, x2*f.k, (f.h-y2)*f.k)
+	f.outf("%.4f %.4f m %.4f %.4f l S", x1*f.k, (f.h-y1)*f.k, x2*f.k, (f.h-y2)*f.k)
 }
 
 func fillDrawOp(styleStr string) (opStr string) {
