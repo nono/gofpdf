@@ -20,7 +20,7 @@ type TransformMatrix struct {
 // finally a call to TransformEnd(). All transformation contexts must be
 // properly ended prior to outputting the document.
 //
-// See tutorial 17 for a transformation examples.
+// See tutorial 17 for transformation examples.
 func (f *Fpdf) TransformBegin() {
 	f.transformNest++
 	f.out("q")
