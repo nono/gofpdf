@@ -2676,13 +2676,8 @@ func (f *Fpdf) putpages() {
 			}
 		}
 	}
-	if f.defOrientation == "P" {
-		wPt = f.defPageSize.Wd * f.k
-		hPt = f.defPageSize.Ht * f.k
-	} else {
-		wPt = f.defPageSize.Ht * f.k
-		hPt = f.defPageSize.Wd * f.k
-	}
+	wPt = f.defPageSize.Wd * f.k
+	hPt = f.defPageSize.Ht * f.k
 	for n := 1; n <= nb; n++ {
 		// Page
 		f.newobj()
@@ -2749,6 +2744,9 @@ func (f *Fpdf) putpages() {
 	f.out(kids.String())
 	f.outf("/Count %d", nb)
 	f.outf("/MediaBox [0 0 %.2f %.2f]", wPt, hPt)
+	if f.defOrientation == "L" {
+		f.out("/Rotate 270")
+	}
 	f.out(">>")
 	f.out("endobj")
 }
