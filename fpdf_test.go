@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Kurt Jung (Gmail: kurt.w.jung)
+ * Copyright (c) 2013-2014 Kurt Jung (Gmail: kurt.w.jung)
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -88,6 +87,18 @@ func docWriter(pdf *gofpdf.Fpdf, idx int) *pdfWriter {
 	return pw
 }
 
+func imageFile(fileStr string) string {
+	return filepath.Join(cnImgDir, fileStr)
+}
+
+func fontFile(fileStr string) string {
+	return filepath.Join(cnFontDir, fileStr)
+}
+
+func textFile(fileStr string) string {
+	return filepath.Join(cnTextDir, fileStr)
+}
+
 // Convert 'ABCDEFG' to, for example, 'A,BCD,EFG'
 func strDelimit(str string, sepstr string, sepcount int) string {
 	pos := len(str) - sepcount
@@ -96,71 +107,6 @@ func strDelimit(str string, sepstr string, sepcount int) string {
 		pos = pos - sepcount
 	}
 	return str
-}
-
-type htmlSegmentType struct {
-	cat  byte              // 'O' open tag, 'C' close tag, 'T' text
-	str  string            // Literal text unchanged, tags are lower case
-	attr map[string]string // Attribute keys are lower case
-}
-
-// Returns a list of HTML tags and literal elements. This is done with regular
-// expressions, so the result is only marginally better than useless.
-// Adapted from http://www.fpdf.org/
-func htmlTokenize(htmlStr string) (list []htmlSegmentType) {
-	list = make([]htmlSegmentType, 0, 16)
-	htmlStr = strings.Replace(htmlStr, "\n", " ", -1)
-	htmlStr = strings.Replace(htmlStr, "\r", "", -1)
-	tagRe, _ := regexp.Compile(`(?U)<.*>`)
-	attrRe, _ := regexp.Compile(`([^=]+)=["']?([^"']+)`)
-	capList := tagRe.FindAllStringIndex(htmlStr, -1)
-	if capList != nil {
-		var seg htmlSegmentType
-		var parts []string
-		pos := 0
-		for _, cap := range capList {
-			if pos < cap[0] {
-				seg.cat = 'T'
-				seg.str = htmlStr[pos:cap[0]]
-				seg.attr = nil
-				list = append(list, seg)
-			}
-			if htmlStr[cap[0]+1] == '/' {
-				seg.cat = 'C'
-				seg.str = strings.ToLower(htmlStr[cap[0]+2 : cap[1]-1])
-				seg.attr = nil
-				list = append(list, seg)
-			} else {
-				// Extract attributes
-				parts = strings.Split(htmlStr[cap[0]+1:cap[1]-1], " ")
-				if len(parts) > 0 {
-					for j, part := range parts {
-						if j == 0 {
-							seg.cat = 'O'
-							seg.str = strings.ToLower(parts[0])
-							seg.attr = make(map[string]string)
-						} else {
-							attrList := attrRe.FindAllStringSubmatch(part, -1)
-							if attrList != nil {
-								for _, attr := range attrList {
-									seg.attr[strings.ToLower(attr[1])] = attr[2]
-								}
-							}
-						}
-					}
-					list = append(list, seg)
-				}
-			}
-			pos = cap[1]
-		}
-		if len(htmlStr) > pos {
-			seg.cat = 'T'
-			seg.str = htmlStr[pos:]
-			seg.attr = nil
-			list = append(list, seg)
-		}
-	}
-	return
 }
 
 func lorem() string {
@@ -178,7 +124,13 @@ func ExampleFpdf_tutorial01() {
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
 	pdf.Cell(40, 10, "Hello World!")
-	pdf.OutputAndClose(docWriter(pdf, 1))
+	fileStr := filepath.Join(cnGofpdfDir, "pdf/tutorial01.pdf")
+	err := pdf.OutputFileAndClose(fileStr)
+	if err == nil {
+		fmt.Println("Successfully generated pdf/tutorial01.pdf")
+	} else {
+		fmt.Println(err)
+	}
 	// Output:
 	// Successfully generated pdf/tutorial01.pdf
 }
@@ -187,7 +139,7 @@ func ExampleFpdf_tutorial01() {
 func ExampleFpdf_tutorial02() {
 	pdf := gofpdf.New("P", "mm", "A4", cnFontDir)
 	pdf.SetHeaderFunc(func() {
-		pdf.Image(cnImgDir+"/logo.png", 10, 6, 30, 0, false, "", 0, "")
+		pdf.Image(imageFile("logo.png"), 10, 6, 30, 0, false, "", 0, "")
 		pdf.SetY(5)
 		pdf.SetFont("Arial", "B", 15)
 		pdf.Cell(80, 0, "")
@@ -274,8 +226,8 @@ func ExampleFpdf_tutorial03() {
 		chapterTitle(chapNum, titleStr)
 		chapterBody(fileStr)
 	}
-	printChapter(1, "A RUNAWAY REEF", cnTextDir+"/20k_c1.txt")
-	printChapter(2, "THE PROS AND CONS", cnTextDir+"/20k_c2.txt")
+	printChapter(1, "A RUNAWAY REEF", textFile("20k_c1.txt"))
+	printChapter(2, "THE PROS AND CONS", textFile("20k_c2.txt"))
 	pdf.OutputAndClose(docWriter(pdf, 3))
 	// Output:
 	// Successfully generated pdf/tutorial03.pdf
@@ -374,8 +326,8 @@ func ExampleFpdf_tutorial04() {
 		// Page number
 		pdf.CellFormat(0, 10, fmt.Sprintf("Page %d", pdf.PageNo()), "", 0, "C", false, 0, "")
 	})
-	printChapter(1, "A RUNAWAY REEF", cnTextDir+"/20k_c1.txt")
-	printChapter(2, "THE PROS AND CONS", cnTextDir+"/20k_c2.txt")
+	printChapter(1, "A RUNAWAY REEF", textFile("20k_c1.txt"))
+	printChapter(2, "THE PROS AND CONS", textFile("20k_c2.txt"))
 	pdf.OutputAndClose(docWriter(pdf, 4))
 	// Output:
 	// Successfully generated pdf/tutorial04.pdf
@@ -488,7 +440,7 @@ func ExampleFpdf_tutorial05() {
 		}
 		pdf.CellFormat(wSum, 0, "", "T", 0, "", false, 0, "")
 	}
-	loadData(cnTextDir + "/countries.txt")
+	loadData(textFile("countries.txt"))
 	pdf.SetFont("Arial", "", 14)
 	pdf.AddPage()
 	basicTable()
@@ -501,96 +453,32 @@ func ExampleFpdf_tutorial05() {
 	// Successfully generated pdf/tutorial05.pdf
 }
 
-// Internal and external links
+// This example demonstrates internal and external links with and without basic
+// HTML.
 func ExampleFpdf_tutorial06() {
-	var boldLvl, italicLvl, underscoreLvl int
-	var hrefStr string
 	pdf := gofpdf.New("P", "mm", "A4", cnFontDir)
-	setStyle := func(boldAdj, italicAdj, underscoreAdj int) {
-		styleStr := ""
-		boldLvl += boldAdj
-		if boldLvl > 0 {
-			styleStr += "B"
-		}
-		italicLvl += italicAdj
-		if italicLvl > 0 {
-			styleStr += "I"
-		}
-		underscoreLvl += underscoreAdj
-		if underscoreLvl > 0 {
-			styleStr += "U"
-		}
-		pdf.SetFont("", styleStr, 0)
-	}
-	putLink := func(urlStr, txtStr string) {
-		// Put a hyperlink
-		pdf.SetTextColor(0, 0, 255)
-		setStyle(0, 0, 1)
-		pdf.WriteLinkString(5, txtStr, urlStr)
-		setStyle(0, 0, -1)
-		pdf.SetTextColor(0, 0, 0)
-	}
-
-	writeHTML := func(htmlStr string) {
-		list := htmlTokenize(htmlStr)
-		var ok bool
-		for _, el := range list {
-			switch el.cat {
-			case 'T':
-				if len(hrefStr) > 0 {
-					putLink(hrefStr, el.str)
-					hrefStr = ""
-				} else {
-					pdf.Write(5, el.str)
-				}
-			case 'O':
-				switch el.str {
-				case "b":
-					setStyle(1, 0, 0)
-				case "i":
-					setStyle(0, 1, 0)
-				case "u":
-					setStyle(0, 0, 1)
-				case "br":
-					pdf.Ln(5)
-				case "a":
-					hrefStr, ok = el.attr["href"]
-					if !ok {
-						hrefStr = ""
-					}
-				}
-			case 'C':
-				switch el.str {
-				case "b":
-					setStyle(-1, 0, 0)
-				case "i":
-					setStyle(0, -1, 0)
-				case "u":
-					setStyle(0, 0, -1)
-
-				}
-			}
-		}
-	}
-	// First page
+	// First page: manual local link
 	pdf.AddPage()
-	pdf.SetFont("Arial", "", 20)
-	pdf.Write(5, "To find out what's new in this tutorial, click ")
+	pdf.SetFont("Helvetica", "", 20)
+	_, lineHt := pdf.GetFontSize()
+	pdf.Write(lineHt, "To find out what's new in this tutorial, click ")
 	pdf.SetFont("", "U", 0)
 	link := pdf.AddLink()
-	pdf.WriteLinkID(5, "here", link)
+	pdf.WriteLinkID(lineHt, "here", link)
 	pdf.SetFont("", "", 0)
-	// Second page
+	// Second page: image link and basic HTML with link
 	pdf.AddPage()
 	pdf.SetLink(link, 0, -1)
-	pdf.Image(cnImgDir+"/logo.png", 10, 12, 30, 0, false, "", 0, "http://www.fpdf.org")
+	pdf.Image(imageFile("logo.png"), 10, 12, 30, 0, false, "", 0, "http://www.fpdf.org")
 	pdf.SetLeftMargin(45)
 	pdf.SetFontSize(14)
+	_, lineHt = pdf.GetFontSize()
 	htmlStr := `You can now easily print text mixing different styles: <b>bold</b>, ` +
 		`<i>italic</i>, <u>underlined</u>, or <b><i><u>all at once</u></i></b>!<br><br>` +
 		`You can also insert links on text, such as ` +
 		`<a href="http://www.fpdf.org">www.fpdf.org</a>, or on an image: click on the logo.`
-	writeHTML(htmlStr)
+	html := pdf.HTMLBasicNew()
+	html.Write(lineHt, htmlStr)
 	pdf.OutputAndClose(docWriter(pdf, 6))
 	// Output:
 	// Successfully generated pdf/tutorial06.pdf
@@ -613,15 +501,15 @@ func ExampleFpdf_tutorial08() {
 	pdf := gofpdf.New("P", "mm", "A4", cnFontDir)
 	pdf.AddPage()
 	pdf.SetFont("Arial", "", 11)
-	pdf.Image(cnImgDir+"/logo.png", 10, 10, 30, 0, false, "", 0, "")
+	pdf.Image(imageFile("logo.png"), 10, 10, 30, 0, false, "", 0, "")
 	pdf.Text(50, 20, "logo.png")
-	pdf.Image(cnImgDir+"/logo.gif", 10, 40, 30, 0, false, "", 0, "")
+	pdf.Image(imageFile("logo.gif"), 10, 40, 30, 0, false, "", 0, "")
 	pdf.Text(50, 50, "logo.gif")
-	pdf.Image(cnImgDir+"/logo-gray.png", 10, 70, 30, 0, false, "", 0, "")
+	pdf.Image(imageFile("logo-gray.png"), 10, 70, 30, 0, false, "", 0, "")
 	pdf.Text(50, 80, "logo-gray.png")
-	pdf.Image(cnImgDir+"/logo-rgb.png", 10, 100, 30, 0, false, "", 0, "")
+	pdf.Image(imageFile("logo-rgb.png"), 10, 100, 30, 0, false, "", 0, "")
 	pdf.Text(50, 110, "logo-rgb.png")
-	pdf.Image(cnImgDir+"/logo.jpg", 10, 130, 30, 0, false, "", 0, "")
+	pdf.Image(imageFile("logo.jpg"), 10, 130, 30, 0, false, "", 0, "")
 	pdf.Text(50, 140, "logo.jpg")
 	pdf.OutputAndClose(docWriter(pdf, 8))
 	// Output:
@@ -673,9 +561,9 @@ func ExampleFpdf_tutorial09() {
 	pdf.SetFont("Times", "", 12)
 	for j := 0; j < 20; j++ {
 		if j == 1 {
-			pdf.Image(cnImgDir+"/fpdf.png", -1, 0, colWd, 0, true, "", 0, "")
+			pdf.Image(imageFile("fpdf.png"), -1, 0, colWd, 0, true, "", 0, "")
 		} else if j == 5 {
-			pdf.Image(cnImgDir+"/golang-gopher.png", -1, 0, colWd, 0, true, "", 0, "")
+			pdf.Image(imageFile("golang-gopher.png"), -1, 0, colWd, 0, true, "", 0, "")
 		}
 		pdf.MultiCell(colWd, 5, loremStr, "", "", false)
 		pdf.Ln(-1)
@@ -687,7 +575,7 @@ func ExampleFpdf_tutorial09() {
 
 // Test the corner cases as reported by the gocov tool
 func ExampleFpdf_tutorial10() {
-	gofpdf.MakeFont(cnFontDir+"/calligra.ttf", cnFontDir+"/cp1252.map", cnFontDir, nil, true)
+	gofpdf.MakeFont(fontFile("calligra.ttf"), fontFile("cp1252.map"), cnFontDir, nil, true)
 	pdf := gofpdf.New("", "", "", "")
 	pdf.SetFontLocation(cnFontDir)
 	pdf.SetTitle("世界", true)
@@ -822,7 +710,7 @@ func ExampleFpdf_tutorial12() {
 			pdf.SetXY(x, y+2)
 			pdf.CellFormat(rectW, rectH, "A", "", 0, "C", false, 0, "")
 			pdf.SetAlpha(0.5, modeList[j])
-			pdf.Image(cnImgDir+"/golang-gopher.png", x-gapX, y, rectW+2*gapX, 0, false, "", 0, "")
+			pdf.Image(imageFile("golang-gopher.png"), x-gapX, y, rectW+2*gapX, 0, false, "", 0, "")
 			pdf.SetAlpha(1.0, "Normal")
 			x += rectW + gapX
 			j++
@@ -887,7 +775,7 @@ func ExampleFpdf_tutorial14() {
 
 	y += 28
 	pdf.ClipEllipse(26, y+10, 16, 10, true)
-	pdf.Image(cnImgDir+"/logo.jpg", 10, y, 32, 0, false, "JPG", 0, "")
+	pdf.Image(imageFile("logo.jpg"), 10, y, 32, 0, false, "JPG", 0, "")
 	pdf.ClipEnd()
 
 	pdf.ClipCircle(60, y+10, 10, true)
@@ -996,7 +884,7 @@ func ExampleFpdf_tutorial17() {
 
 	titleStr := "Transformations"
 	titlePt := 36.0
-	titleHt := titlePt * 25.4 / 72.0
+	titleHt := pdf.PointConvert(titlePt)
 	pdf.SetFont("Helvetica", "", titlePt)
 	titleWd := pdf.GetStringWidth(titleStr)
 	titleX := (210 - titleWd) / 2
@@ -1105,7 +993,7 @@ func ExampleFpdf_tutorial18() {
 	pdf.SetMargins(10, 10, 10)
 	pdf.SetFont("Helvetica", "", 15)
 	for j, str := range fileList {
-		fileStr = filepath.Join(cnImgDir, str)
+		fileStr = imageFile(str)
 		infoPtr = pdf.RegisterImage(fileStr, "")
 		imgWd, imgHt = infoPtr.Extent()
 		switch j {
@@ -1130,4 +1018,181 @@ func ExampleFpdf_tutorial18() {
 	pdf.OutputAndClose(docWriter(pdf, 18))
 	// Output:
 	// Successfully generated pdf/tutorial18.pdf
+}
+
+// Example to demonstrate Bruno Michel's line splitting function.
+func ExampleFpdf_tutorial19() {
+	const (
+		fontPtSize = 18.0
+		wd         = 100.0
+	)
+	pdf := gofpdf.New("P", "mm", "A4", cnFontDir) // A4 210.0 x 297.0
+	pdf.SetFont("Times", "", fontPtSize)
+	_, lineHt := pdf.GetFontSize()
+	pdf.AddPage()
+	pdf.SetMargins(10, 10, 10)
+	lines := pdf.SplitLines([]byte(lorem()), wd)
+	ht := float64(len(lines)) * lineHt
+	y := (297.0 - ht) / 2.0
+	pdf.SetDrawColor(128, 128, 128)
+	pdf.SetFillColor(255, 255, 210)
+	x := (210.0 - (wd + 40.0)) / 2.0
+	pdf.Rect(x, y-20.0, wd+40.0, ht+40.0, "FD")
+	pdf.SetY(y)
+	for _, line := range lines {
+		pdf.CellFormat(190.0, lineHt, string(line), "", 1, "C", false, 0, "")
+	}
+	pdf.OutputAndClose(docWriter(pdf, 19))
+	// Output:
+	// Successfully generated pdf/tutorial19.pdf
+}
+
+// This example demonstrates how to render a simple path-only SVG image of the
+// type generated by the jSignature web control.
+func ExampleFpdf_tutorial20() {
+	const (
+		fontPtSize = 16.0
+		wd         = 100.0
+		sigFileStr = "signature.svg"
+	)
+	var (
+		sig gofpdf.SVGBasicType
+		err error
+	)
+	pdf := gofpdf.New("P", "mm", "A4", cnFontDir) // A4 210.0 x 297.0
+	pdf.SetFont("Times", "", fontPtSize)
+	lineHt := pdf.PointConvert(fontPtSize)
+	pdf.AddPage()
+	pdf.SetMargins(10, 10, 10)
+	htmlStr := `This example renders a simple ` +
+		`<a href="http://www.w3.org/TR/SVG/">SVG</a> (scalable vector graphics) ` +
+		`image that contains only basic path commands without any styling, ` +
+		`color fill, reflection or endpoint closures. In particular, the ` +
+		`type of vector graphic returned from a ` +
+		`<a href="http://willowsystems.github.io/jSignature/#/demo/">jSignature</a> ` +
+		`web control is supported and is used in this example.`
+	html := pdf.HTMLBasicNew()
+	html.Write(lineHt, htmlStr)
+	sig, err = gofpdf.SVGBasicFileParse(imageFile(sigFileStr))
+	if err == nil {
+		scale := 100 / sig.Wd
+		scaleY := 30 / sig.Ht
+		if scale > scaleY {
+			scale = scaleY
+		}
+		pdf.SetLineCapStyle("round")
+		pdf.SetLineWidth(0.25)
+		pdf.SetDrawColor(0, 0, 128)
+		pdf.SetXY((210.0-scale*sig.Wd)/2.0, pdf.GetY()+10)
+		pdf.SVGBasicWrite(&sig, scale)
+	} else {
+		pdf.SetError(err)
+	}
+	pdf.OutputAndClose(docWriter(pdf, 20))
+	// Output:
+	// Successfully generated pdf/tutorial20.pdf
+}
+
+// This example demonstrates Stefan Schroeder's code to control vertical
+// alignment.
+func ExampleFpdf_tutorial21() {
+	type recType struct {
+		align, txt string
+	}
+	recList := []recType{
+		recType{"TL", "top left"},
+		recType{"TC", "top center"},
+		recType{"TR", "top right"},
+		recType{"LM", "middle left"},
+		recType{"CM", "middle center"},
+		recType{"RM", "middle right"},
+		recType{"BL", "bottom left"},
+		recType{"BC", "bottom center"},
+		recType{"BR", "bottom right"},
+	}
+	pdf := gofpdf.New("P", "mm", "A4", cnFontDir) // A4 210.0 x 297.0
+	pdf.SetFont("Helvetica", "", 16)
+	linkStr := ""
+	for pageJ := 0; pageJ < 2; pageJ++ {
+		pdf.AddPage()
+		pdf.SetMargins(10, 10, 10)
+		pdf.SetAutoPageBreak(false, 0)
+		borderStr := "1"
+		for _, rec := range recList {
+			pdf.SetXY(20, 20)
+			pdf.CellFormat(170, 257, rec.txt, borderStr, 0, rec.align, false, 0, linkStr)
+			borderStr = ""
+		}
+		linkStr = "https://code.google.com/p/gofpdf/"
+	}
+	pdf.OutputAndClose(docWriter(pdf, 21))
+	// Output:
+	// Successfully generated pdf/tutorial21.pdf
+}
+
+// This example demonstrates the use of characters in the high range of the
+// Windows-1252 code page (gofdpf default).
+func ExampleFpdf_tutorial22() {
+	pdf := gofpdf.New("P", "mm", "A4", cnFontDir) // A4 210.0 x 297.0
+	fontSize := 16.0
+	pdf.SetFont("Helvetica", "", fontSize)
+	ht := pdf.PointConvert(fontSize)
+	write := func(str string) {
+		pdf.CellFormat(190, ht, str, "", 1, "C", false, 0, "")
+		pdf.Ln(ht)
+	}
+	pdf.AddPage()
+	htmlStr := `Until gofpdf supports UTF-8 encoded source text, source text needs ` +
+		`to be specified with all special characters escaped to match the code page ` +
+		`layout of the currently selected font. By default, gofdpf uses code page 1252.` +
+		` See <a href="http://en.wikipedia.org/wiki/Windows-1252">Wikipedia</a> for ` +
+		`a table of this layout.`
+	html := pdf.HTMLBasicNew()
+	html.Write(ht, htmlStr)
+	pdf.Ln(2 * ht)
+	write("Voix ambigu\xeb d'un c\x9cur qui au z\xe9phyr pr\xe9f\xe8re les jattes de kiwi.")
+	write("Falsches \xdcben von Xylophonmusik qu\xe4lt jeden gr\xf6\xdferen Zwerg.")
+	write("Heiz\xf6lr\xfccksto\xdfabd\xe4mpfung")
+	write("For\xe5rsj\xe6vnd\xf8gn / Efter\xe5rsj\xe6vnd\xf8gn")
+	pdf.OutputAndClose(docWriter(pdf, 22))
+	// Output:
+	// Successfully generated pdf/tutorial22.pdf
+}
+
+// This example demonstrates the conversion of UTF-8 strings to an 8-bit font
+// encoding.
+func ExampleFpdf_tutorial23() {
+	pdf := gofpdf.New("P", "mm", "A4", cnFontDir) // A4 210.0 x 297.0
+	fontSize := 16.0
+	pdf.SetFont("Helvetica", "", fontSize)
+	ht := pdf.PointConvert(fontSize)
+	tr := pdf.UnicodeTranslatorFromDescriptor("") // "" defaults to "cp1252"
+	write := func(str string) {
+		pdf.CellFormat(190, ht, tr(str), "", 1, "C", false, 0, "")
+		pdf.Ln(ht)
+	}
+	pdf.AddPage()
+	str := `Gofpdf provides a translator that will convert any UTF-8 code point ` +
+		`that is present in the specified code page.`
+	pdf.MultiCell(190, ht, str, "", "L", false)
+	pdf.Ln(2 * ht)
+	write("Voix ambiguë d'un cœur qui au zéphyr préfère les jattes de kiwi.")
+	write("Falsches Üben von Xylophonmusik quält jeden größeren Zwerg.")
+	write("Heizölrückstoßabdämpfung")
+	write("Forårsjævndøgn / Efterårsjævndøgn")
+	pdf.OutputAndClose(docWriter(pdf, 23))
+	// Output:
+	// Successfully generated pdf/tutorial23.pdf
+}
+
+// This example demonstrates document protection.
+func ExampleFpdf_tutorial24() {
+	pdf := gofpdf.New("P", "mm", "A4", cnFontDir)
+	pdf.SetProtection(gofpdf.CnProtectPrint, "123", "abc")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "", 12)
+	pdf.Write(10, "Password-protected.")
+	pdf.OutputAndClose(docWriter(pdf, 24))
+	// Output:
+	// Successfully generated pdf/tutorial24.pdf
 }
