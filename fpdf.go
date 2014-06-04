@@ -2035,11 +2035,11 @@ func (f *Fpdf) Image(fileStr string, x, y, w, h float64, flow bool, tp string, l
 	return
 }
 
-func (f *Fpdf) URLImage(fileStr string, x, y, w, h float64, flow bool, tp string, link int, linkStr string) {
+func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64, flow bool, tp string, link int, linkStr string) {
 	if f.err != nil {
 		return
 	}
-	info := f.RegisterURLImage(fileStr, "png")
+	info := f.RegisterURLImage(client, fileStr, "png")
 	if f.err != nil {
 		return
 	}
@@ -2088,13 +2088,13 @@ func (f *Fpdf) URLImage(fileStr string, x, y, w, h float64, flow bool, tp string
 	return
 }
 
-func (f *Fpdf) RegisterURLImage(fileStr, tp string) (info *ImageInfoType) {
+func (f *Fpdf) RegisterURLImage(client *http.Client, fileStr, tp string) (info *ImageInfoType) {
 	info, ok := f.images[fileStr]
 	if ok {
 		return info
 	}
 
-	resp, err := http.Get(fileStr)
+	resp, err := client.Get(fileStr)
 	if err != nil {
 		f.err = err
 		return
