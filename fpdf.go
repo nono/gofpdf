@@ -2039,7 +2039,22 @@ func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64,
 	if f.err != nil {
 		return f.err
 	}
-	info := f.RegisterURLImage(client, fileStr, "png")
+
+	if tp == "" {
+		strParts := strings.Split(fileStr, ".")
+		tp = strParts[len(strParts)-1]
+		tp = strings.ToLower(tp)
+		switch tp {
+		case "jpg":
+		case "jpeg":
+		case "png":
+		case "gif":
+		default:
+			tp = "jpg"
+		}
+	}
+
+	info := f.RegisterURLImage(client, fileStr, tp)
 	if f.err != nil {
 		return f.err
 	}
