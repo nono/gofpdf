@@ -2035,13 +2035,13 @@ func (f *Fpdf) Image(fileStr string, x, y, w, h float64, flow bool, tp string, l
 	return
 }
 
-func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64, flow bool, tp string, link int, linkStr string) {
+func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64, flow bool, tp string, link int, linkStr string) error {
 	if f.err != nil {
-		return
+		return f.err
 	}
 	info := f.RegisterURLImage(client, fileStr, "png")
 	if f.err != nil {
-		return
+		return f.err
 	}
 
 	// Automatic width and height calculation if needed
@@ -2069,7 +2069,7 @@ func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64,
 			x2 := f.x
 			f.AddPageFormat(f.curOrientation, f.curPageSize)
 			if f.err != nil {
-				return
+				return nil
 			}
 			f.x = x2
 		}
@@ -2085,7 +2085,7 @@ func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64,
 	if link > 0 || len(linkStr) > 0 {
 		f.newLink(x, y, w, h, link, linkStr)
 	}
-	return
+	return nil
 }
 
 func (f *Fpdf) RegisterURLImage(client *http.Client, fileStr, tp string) (info *ImageInfoType) {
