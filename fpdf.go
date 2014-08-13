@@ -2058,11 +2058,11 @@ func (f *Fpdf) RegisterImageReader(imgName, tp string, r io.Reader) (info *Image
 	}
 	switch tp {
 	case "jpg":
-		info = f.parsejpg(r)
+		info = f.parsejpg(r, imgName)
 	case "png":
-		info = f.parsepng(r)
+		info = f.parsepng(r, imgName)
 	case "gif":
-		info = f.parsegif(r)
+		info = f.parsegif(r, imgName)
 	default:
 		f.err = fmt.Errorf("unsupported image type: %s", tp)
 	}
@@ -2367,7 +2367,7 @@ func (f *Fpdf) newImageInfo() *ImageInfoType {
 
 // Extract info from io.Reader with JPEG data
 // Thank you, Bruno Michel, for providing this code.
-func (f *Fpdf) parsejpg(r io.Reader) (info *ImageInfoType) {
+func (f *Fpdf) parsejpg(r io.Reader, imgName string) (info *ImageInfoType) {
 	info = f.newImageInfo()
 	var (
 		data bytes.Buffer
@@ -2395,20 +2395,20 @@ func (f *Fpdf) parsejpg(r io.Reader) (info *ImageInfoType) {
 	case color.YCbCrModel:
 		info.cs = "DeviceRGB"
 	default:
-		f.err = fmt.Errorf("image JPEG buffer has unsupported color space (%v)", config.ColorModel)
+		f.err = fmt.Errorf("image JPEG buffer has unsupported color space (%v): %s", config.ColorModel, imgName)
 		return
 	}
 	return
 }
 
 // Extract info from a PNG data
-func (f *Fpdf) parsepng(r io.Reader) (info *ImageInfoType) {
+func (f *Fpdf) parsepng(r io.Reader, imgName string) (info *ImageInfoType) {
 	buf, err := bufferFromReader(r)
 	if err != nil {
 		f.err = err
 		return
 	}
-	return f.parsepngstream(buf)
+	return f.parsepngstream(buf, imgName)
 }
 
 func (f *Fpdf) readBeInt32(buf *bytes.Buffer) (val int32) {
@@ -2427,24 +2427,24 @@ func (f *Fpdf) readByte(buf *bytes.Buffer) (val byte) {
 	return
 }
 
-func (f *Fpdf) parsepngstream(buf *bytes.Buffer) (info *ImageInfoType) {
+func (f *Fpdf) parsepngstream(buf *bytes.Buffer, imgName string) (info *ImageInfoType) {
 	info = f.newImageInfo()
 	// 	Check signature
 	if string(buf.Next(8)) != "\x89PNG\x0d\x0a\x1a\x0a" {
-		f.err = fmt.Errorf("not a PNG buffer")
+		f.err = fmt.Errorf("not a PNG buffer: %s", imgName)
 		return
 	}
 	// Read header chunk
 	_ = buf.Next(4)
 	if string(buf.Next(4)) != "IHDR" {
-		f.err = fmt.Errorf("incorrect PNG buffer")
+		f.err = fmt.Errorf("incorrect PNG buffer: %s", imgName)
 		return
 	}
 	w := f.readBeInt32(buf)
 	h := f.readBeInt32(buf)
 	bpc := f.readByte(buf)
 	if bpc > 8 {
-		f.err = fmt.Errorf("16-bit depth not supported in PNG file")
+		f.err = fmt.Errorf("16-bit depth not supported in PNG file: %s", imgName)
 	}
 	ct := f.readByte(buf)
 	var colspace string
@@ -2458,21 +2458,21 @@ func (f *Fpdf) parsepngstream(buf *bytes.Buffer) (info *ImageInfoType) {
 	case 3:
 		colspace = "Indexed"
 	default:
-		f.err = fmt.Errorf("unknown color type in PNG buffer: %d", ct)
+		f.err = fmt.Errorf("unknown color type in PNG buffer: %d - %s", ct, imgName)
 	}
 	if f.err != nil {
 		return
 	}
 	if f.readByte(buf) != 0 {
-		f.err = fmt.Errorf("'unknown compression method in PNG buffer")
+		f.err = fmt.Errorf("'unknown compression method in PNG buffer: %s", imgName)
 		return
 	}
 	if f.readByte(buf) != 0 {
-		f.err = fmt.Errorf("'unknown filter method in PNG buffer")
+		f.err = fmt.Errorf("'unknown filter method in PNG buffer: %s", imgName)
 		return
 	}
 	if f.readByte(buf) != 0 {
-		f.err = fmt.Errorf("interlacing not supported in PNG buffer")
+		f.err = fmt.Errorf("interlacing not supported in PNG buffer: %s", imgName)
 		return
 	}
 	_ = buf.Next(4)
@@ -2523,7 +2523,7 @@ func (f *Fpdf) parsepngstream(buf *bytes.Buffer) (info *ImageInfoType) {
 		}
 	}
 	if colspace == "Indexed" && len(pal) == 0 {
-		f.err = fmt.Errorf("missing palette in PNG buffer")
+		f.err = fmt.Errorf("missing palette in PNG buffer: %s", imgName)
 	}
 	info.w = float64(w)
 	info.h = float64(h)
@@ -2589,7 +2589,7 @@ func (f *Fpdf) parsepngstream(buf *bytes.Buffer) (info *ImageInfoType) {
 }
 
 // Extract info from a GIF data (via PNG conversion)
-func (f *Fpdf) parsegif(r io.Reader) (info *ImageInfoType) {
+func (f *Fpdf) parsegif(r io.Reader, imgName string) (info *ImageInfoType) {
 	data, err := bufferFromReader(r)
 	if err != nil {
 		f.err = err
@@ -2607,7 +2607,7 @@ func (f *Fpdf) parsegif(r io.Reader) (info *ImageInfoType) {
 		f.err = err
 		return
 	}
-	return f.parsepngstream(pngBuf)
+	return f.parsepngstream(pngBuf, imgName)
 }
 
 // Begin a new object
