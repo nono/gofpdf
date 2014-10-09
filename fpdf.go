@@ -2040,20 +2040,6 @@ func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64,
 		return f.err
 	}
 
-	if tp == "" {
-		strParts := strings.Split(fileStr, ".")
-		tp = strParts[len(strParts)-1]
-		tp = strings.ToLower(tp)
-		switch tp {
-		case "jpg":
-		case "jpeg":
-		case "png":
-		case "gif":
-		default:
-			tp = "jpg"
-		}
-	}
-
 	info := f.RegisterURLImage(client, fileStr, tp)
 	if f.err != nil {
 		return f.err
@@ -2104,17 +2090,33 @@ func (f *Fpdf) URLImage(client *http.Client, fileStr string, x, y, w, h float64,
 }
 
 func (f *Fpdf) RegisterURLImage(client *http.Client, fileStr, tp string) (info *ImageInfoType) {
+	// if image already exists in the pdf images map, return
 	info, ok := f.images[fileStr]
 	if ok {
 		return info
 	}
 
+	// get the image from the url
 	resp, err := client.Get(fileStr)
 	if err != nil {
 		f.err = err
 		return
 	}
 	file := resp.Body
+
+	// try to get the image type based on the response Content-Type
+	switch resp.Header["Content-Type"][0] {
+	case "image/png":
+		tp = "png"
+	case "image/jpg":
+		tp = "jpg"
+	case "image/jpeg":
+		tp = "jpg"
+	case "image/gif":
+		tp = "gif"
+	default:
+		f.err = fmt.Errorf("unsupported image type: %s", tp)
+	}
 
 	// First use of this image, get info
 	if tp == "" {
